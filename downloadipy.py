@@ -66,8 +66,12 @@ class Downloader():
                 input("Enter file name for downloading:[Current: %s] " % fname))
             destination = destination if temp_destination is "" else temp_destination
             fname = fname if temp_fname is "" else temp_fname
-            destination, fname = self.path_handler(
+            path_tuple = self.path_handler(
                 _os.path.join(destination, fname), default, url, 0)
+            if path_tuple is None:
+                return
+            else:
+                destination, fname = path_tuple
         elif _os.path.exists(path):
             choice = str(
                 input("File already exists, [D]ownload | [R]ename | [S]kip(default) :"))
@@ -77,8 +81,12 @@ class Downloader():
             elif choice == "R":
                 rename = 1
                 print("Renaming...")
-                destination, fname = self.path_handler(
+                path_tuple = self.path_handler(
                     _os.path.join(destination, fname), default, url, rename)
+                if path_tuple is None:
+                    return
+                else:
+                    destination, fname = path_tuple
             else:
                 print("SKIPPING either due to user choice or invalid choice")
                 return
