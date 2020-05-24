@@ -15,7 +15,7 @@ import zlib as _zlib
 
 class Downloader():
 
-    def __init__(self, url: str, path: str = None, method: str = "GET", cookies: dict = None):
+    def __init__(self, url: str, path: str = None, method: str = "GET", cookies: dict = None) -> None:
         self.url = url
         self.path = path
         self.request_method = method
@@ -35,7 +35,8 @@ class Downloader():
 
     @staticmethod
     def humanize_bytes(nbytes: int) -> str:
-
+        '''Convert amount of bytes to human readable form.
+        '''
         suffix = {0: " B",
                   1: " KB",
                   2: " MB",
@@ -47,6 +48,8 @@ class Downloader():
         return str(nbytes) + suffix.get(i)
 
     def path_handler(self, path: str, default: str, url: str, rename: bool = 0) -> tuple:
+        '''Handles validation of the complete path.
+        '''
         destination, fname = _os.path.split(path)
         destination = "./" if destination == "" else destination
         while(not _os.path.isdir(destination)):
@@ -81,9 +84,8 @@ class Downloader():
                 return
         return destination, fname
 
-    def request(self, bytesize: int, url: str, method: str = "GET", attempt: int = 0) -> False:
-        '''
-        Returns false incase the request fails to make connection
+    def request(self, bytesize: int, url: str, method: str = "GET", attempt: int = 0) -> bool:
+        '''Returns false incase the request fails to connect
         '''
         method = self.request_method
         headers = {"Range": "bytes=%d-" %
@@ -94,20 +96,20 @@ class Downloader():
             self.content_request = self.session.request(
                 method, url, headers=headers, stream=True, timeout=10)
         except _requests.exceptions.ConnectionError as e:
-            print("Connection Error, checking internet...")
+            print("Error encountered:", e)
             self.check_internet()
             print("Internet Connected. Retrying download")
             self.download()
             # Because download() starts the whole process again; handling
-            # current process with no response.
+            # current process with no response i.e. return false.
             return False
         except (_requests.exceptions.ConnectTimeout, _requests.exceptions.ReadTimeout) as e:
-            print("Timeout exceeded")
+            print("Error encountered:", e)
             self.check_internet()
-            print("Retrying download")
+            print("Internet Connected. Retrying download")
             self.download()
             # Because download() starts the whole process again; handling
-            # current process with no response.
+            # current process with no response i.e. return false.
             return False
 
         content_request_status = True
@@ -136,8 +138,7 @@ class Downloader():
 
     @staticmethod
     def calculate_remaining_time(total_size: int, downloaded_size: int, speed: int) -> str:
-        '''
-        Calculates total time remaining for the download to complete.
+        '''Calculates total time remaining for the download to complete.
         To be used in file_handler for UI puposes.
         Can't handle approximately bigger than 15:00:00.
         '''
@@ -153,11 +154,9 @@ class Downloader():
             time_remaining = "00:00:00"
         return "[{}]".format(time_remaining)
 
-    def file_handler(self, path: str, content_request, content_size: int, resume: bool = False):
+    def file_handler(self, path: str, content_request, content_size: int, resume: bool = False) -> None:
+        '''Responsible for reading bytes from internet and saving locally.
         '''
-        Responsible for reading bytes from internet and saving locally.
-        '''
-
         open_param, dl = ("ab", _os.path.getsize(
             path + ".mddownload")) if resume else ("wb+", 0)
         chunk_size, content_size_humanized = (1024, None) if content_size is None else (
@@ -197,17 +196,20 @@ class Downloader():
                             13), content_size_humanized if dl < content_size else downloaded_size_humanized, self.humanize_bytes(speed).rjust(13), self.calculate_remaining_time(content_size, dl, speed).ljust(20)))
                     _sys.stdout.flush()
                     time_start = _time.time()
-            except _requests.urllib3.exceptions.ReadTimeoutError as e:
-                print("Connection timeout\nChecking connection and retrying...")
+            except (_requests.urllib3.exceptions.ReadTimeoutError, _requests.urllib3.exceptions.ProtocolError)as e:
+                print("Error encountered:", e)
                 self.check_internet()
-                return self.download()
+                print("Internet Connected. Retrying download")
+                self.download()
+                # Because download() starts the whole process again; handling
+                # current process with no response i.e. return none.
+                return None
 
         self.convert_to_final_file(
             path + ".mddownload", dl, content_request.headers.get("Content-Encoding"))
 
-    def decompress(self, path_of_file, encodings):
-        '''
-        Handles different kinds of decompressions incase the data is in compressed form.
+    def decompress(self, path_of_file, encodings) -> None:
+        '''Handles different kinds of decompressions incase the data received is in compressed form.
         '''
         encoding_dict = {"gzip": _gzip.decompress,
                          "deflate": _zlib.decompress,
@@ -221,9 +223,8 @@ class Downloader():
         with open(path_of_file, "wb") as fh:
             fh.write(x)
 
-    def convert_to_final_file(self, path_to_file: str, size: int, content_encoding):
-        '''
-        Responsible for final check of download completion and rename to final file.
+    def convert_to_final_file(self, path_to_file: str, size: int, content_encoding) -> None:
+        '''Responsible for final check of download completion and rename to final file.
         '''
         fsize = _os.path.getsize(path_to_file)
         if fsize == size:
@@ -236,9 +237,8 @@ class Downloader():
                   "\nDownload size:", size, "\nSKIPPING...")
 
     @staticmethod
-    def check_internet():
-        '''
-        Either connect the internet or the scipt calls exit. returns nothing
+    def check_internet() -> None:
+        '''Either connect the internet or the scipt calls exit. returns nothing
         '''
         no_intenet = True
         while (no_intenet):
@@ -253,9 +253,8 @@ class Downloader():
                 if retry == 'N':
                     _sys.exit("No internet")
 
-    def download(self):
-        '''
-        Main and only intended working method. Initializes the whole process.
+    def download(self) -> None:
+        '''Main and only intended working method. Initializes the whole process.
         '''
 
         print("Connecting...")
