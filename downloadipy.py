@@ -15,13 +15,14 @@ import zlib as _zlib
 
 class Downloader():
 
-    def __init__(self, url: str, path: str = None, method: str = "GET", cookies: dict = None) -> None:
+    def __init__(self, url: str, path: str = None, method: str = "GET", cookies: dict = None, headers: dict = None) -> None:
         self.url = url
         self.path = path
         self.request_method = method
         self.session_cookies = cookies
         self.is_resume = False
         self.session = _requests.Session()
+        self.headers = headers
         self.content_request = None
         self.title_fetched = None
         self.filesize = None
@@ -51,15 +52,15 @@ class Downloader():
         '''Handles validation of the complete path.
         '''
         destination, fname = _os.path.split(path)
-        destination = "./" if destination == "" else destination
+        destination = "." if destination == "" or destination is None else destination
+        fname = default if fname == "" or fname is None else fname
         while(not _os.path.isdir(destination)):
             temp_destination = str(
                 input("Destination non-existant:[Current: %s] " % destination))
             destination = destination if temp_destination is "" else temp_destination
-        if fname == "" or rename:
+        if (fname == "" or fname is None) or rename:
             print("Enter valid file name\nFile name:", fname, "\nDestination:", destination, "\nTitle extracted from web:",
                   default)
-            fname = default if fname == "" else fname
             temp_destination = str(
                 input("Enter destination for downloading:[Current: %s] " % destination))
             temp_fname = str(
@@ -72,7 +73,7 @@ class Downloader():
                 return
             else:
                 destination, fname = path_tuple
-        elif _os.path.exists(path):
+        elif _os.path.exists(_os.path.join(destination, fname)):
             choice = str(
                 input("File already exists, [D]ownload | [R]ename | [S]kip(default) :"))
             if choice == "D":
@@ -98,7 +99,8 @@ class Downloader():
         method = self.request_method
         headers = {"Range": "bytes=%d-" %
                    bytesize, "Accept-Encoding": "gzip, deflate, identity, br"}
-
+        if self.headers is not None:
+            headers.update(self.headers)
         self.check_internet()
         try:
             self.content_request = self.session.request(
@@ -157,7 +159,7 @@ class Downloader():
                     (total_size - downloaded_size) // speed))
             except OSError as e:
                 if e.errno == 84:
-                    time_remaining = "You really don't wanna know"
+                    time_remaining = "??:??:??"
         else:
             time_remaining = "00:00:00"
         return "[{}]".format(time_remaining)
@@ -168,7 +170,7 @@ class Downloader():
         open_param, dl = ("ab", _os.path.getsize(
             path + ".mddownload")) if resume else ("wb+", 0)
         chunk_size, content_size_humanized = (1024, None) if content_size is None else (
-            min(int(2 * content_size / 100), 1048576), self.humanize_bytes(content_size))
+            min(max(int(2 * content_size / 100), 1), 1048576), self.humanize_bytes(content_size))
         i = 0
         with open(path + ".mddownload", open_param) as fh:
             time_start = _time.time()
@@ -201,7 +203,7 @@ class Downloader():
                     else:
                         done = min(int(50 * dl / content_size), 50)
                         _sys.stdout.write("\r[{}{}{}]   {}/{}   {}ps   {}".format("=" * done, ">" * bool(50 - done), "." * (50 - done - 1), downloaded_size_humanized.rjust(
-                            13), content_size_humanized if dl < content_size else downloaded_size_humanized, self.humanize_bytes(speed).rjust(13), self.calculate_remaining_time(content_size, dl, speed).ljust(20)))
+                            13), content_size_humanized if dl < content_size else downloaded_size_humanized, self.humanize_bytes(speed).rjust(14), self.calculate_remaining_time(content_size, dl, speed)))
                     _sys.stdout.flush()
                     time_start = _time.time()
             except (_requests.urllib3.exceptions.ReadTimeoutError, _requests.urllib3.exceptions.ProtocolError)as e:
@@ -276,10 +278,10 @@ class Downloader():
             self.title_fetched = _os.path.split(
                 self.url)[-1].split("?")[0].split("#")[0].split("&")[0]
         else:
-            re_obj_fname = _re.search(r'filename=.*?["\'];', titleheader)
+            re_obj_fname = _re.search(r'filename=["\'].*?["\']', titleheader)
             if re_obj_fname is not None:
                 self.title_fetched = titleheader[
-                    re_obj_fname.start() + 10:re_obj_fname.end() - 2]
+                    re_obj_fname.start() + 10:re_obj_fname.end() - 1]
             else:
                 self.title_fetched = _os.path.split(
                     self.url)[-1].split("?")[0].split("#")[0].split("&")[0]
