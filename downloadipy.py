@@ -169,11 +169,12 @@ class Downloader():
         '''
         open_param, dl = ("ab", _os.path.getsize(
             path + ".mddownload")) if resume else ("wb+", 0)
-        chunk_size, content_size_humanized = (1024, None) if content_size is None else (
-            min(max(int(2 * content_size / 100), 1), 1048576), self.humanize_bytes(content_size))
-        i = 0
+        chunk_size = 1048576  # 1024*1024 = 1048576(1MB)
+        content_size_humanized = None if content_size is None else self.humanize_bytes(
+            content_size)
         with open(path + ".mddownload", open_param) as fh:
             time_start = _time.time()
+            i = 0
             speed = 0
             time_diff = 0
             temp_len_dl = 0
@@ -185,20 +186,10 @@ class Downloader():
                     fh.write(data)
                     time_end = _time.time()
 
-                    # time_diff, temp_len_dl, speed, are all there to stabalize
-                    # the 'speed calculated' when chunk_size is too low.
-                    temp_len_dl += len_dl
-                    time_diff += time_end - time_start
-
-                    if time_diff > 1:
-                        speed = temp_len_dl // time_diff
-                        temp_len_dl = 0
-                        time_diff = 0
-
+                    speed = len_dl // (time_end - time_start)
                     if content_size is None:
                         _sys.stdout.write("\rDownloading{}   {}   {}ps".format(
                             ("." * i).ljust(4), downloaded_size_humanized.rjust(11), self.humanize_bytes(speed).rjust(13)))
-                        chunk_size = max(1024, min(int(dl / 100), 1048576))
                         i = 0 if i > 3 else i + 1
                     else:
                         done = min(int(50 * dl / content_size), 50)
