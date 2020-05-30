@@ -51,9 +51,14 @@ class Downloader():
     def path_handler(self, path: str, default: str, url: str, rename: bool = 0) -> tuple:
         '''Handles validation of the complete path.
         '''
-        destination, fname = _os.path.split(path)
-        destination = "." if destination == "" or destination is None else destination
-        fname = default if fname == "" or fname is None else fname
+        if _os.path.isdir(path):
+            destination = path
+            fname = ""
+        else:
+            destination, fname = _os.path.split(path)
+
+        destination = "." if destination == "" else destination
+        fname = default if fname == "" else fname
         while(not _os.path.isdir(destination)):
             temp_destination = str(
                 input("Destination non-existant:[Current: %s] " % destination))
