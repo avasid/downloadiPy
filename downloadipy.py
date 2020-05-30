@@ -157,6 +157,8 @@ class Downloader():
             except OSError as e:
                 if e.errno == 84:
                     time_remaining = "??:??:??"
+                else:
+                    raise e
         else:
             time_remaining = "00:00:00"
         return "[{}]".format(time_remaining)
@@ -228,7 +230,15 @@ class Downloader():
         if fsize == size:
             if content_encoding is not None:
                 self.decompress(path_to_file, content_encoding)
-            _os.rename(path_to_file, path_to_file[:-11])
+            try:
+                _os.rename(path_to_file, path_to_file[:-11])
+            except OSError as e:
+                if e.errno == 5:
+                    print(
+                        "Another process is accessing file, stop the process and rerun the software")
+                    return
+                else:
+                    raise e
             print("\nDownload Complete\nFile stored at:", path_to_file[:-11])
         else:
             print("File size mismatch\nStored file size:", fsize,
