@@ -59,6 +59,9 @@ class Downloader():
         if fname == "":
             fname = default
 
+        if destination == "":
+            destination = "."
+
         while(not _os.path.isdir(destination)):
             temp_destination = str(
                 input("Destination non-existant:[Current: %s] " % destination))
@@ -187,13 +190,13 @@ class Downloader():
 
                     speed = len_dl // (time_end - time_start)
                     if content_size is None:
-                        _sys.stdout.write("\rDownloading{}   {}   {}ps".format(
-                            ("." * i).ljust(4), downloaded_size_humanized.rjust(11), self.humanize_bytes(speed).rjust(13)))
+                        _sys.stdout.write("\rDownloading{:<4} {:>10} {:>10}ps".format(
+                            ("." * i), downloaded_size_humanized, self.humanize_bytes(speed)))
                         i = 0 if i > 3 else i + 1
                     else:
                         done = min(int(50 * dl / content_size), 50)
-                        _sys.stdout.write("\r[{}{}{}]   {}/{}   {}ps   {}".format("=" * done, ">" * bool(50 - done), "." * (50 - done - 1), downloaded_size_humanized.rjust(
-                            13), content_size_humanized if dl < content_size else downloaded_size_humanized, self.humanize_bytes(speed).rjust(14), self.calculate_remaining_time(content_size, dl, speed)))
+                        _sys.stdout.write("\r[{}{}{}] {:>10}/{:<10} {:>10}ps {}".format("=" * done, ">" * bool(50 - done), "." * (50 - done - 1), downloaded_size_humanized,
+                                                                                        content_size_humanized if dl < content_size else downloaded_size_humanized, self.humanize_bytes(speed), self.calculate_remaining_time(content_size, dl, speed)))
                     _sys.stdout.flush()
                     time_start = _time.time()
             except (_requests.urllib3.exceptions.ReadTimeoutError, _requests.urllib3.exceptions.ProtocolError)as e:
@@ -235,7 +238,7 @@ class Downloader():
             except OSError as e:
                 if e.errno == 5:
                     print(
-                        "Another process is accessing file, stop the process and rerun the software")
+                        "Another process is accessing file, stop the process and rerun the software", e)
                     return
                 else:
                     raise e
