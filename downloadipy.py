@@ -308,17 +308,17 @@ class Downloader():
         content_request_status = self.request(0, self.url)
         if content_request_status is False:
             return
-        titleheader = self.content_request.headers.get("Content-Disposition")
 
+        self.title_fetched = _os.path.split(
+            self.url)[-1].split("?")[0].split("#")[0].split("&")[0]
+
+        titleheader = self.content_request.headers.get("Content-Disposition")
         if titleheader is not None:
             titleheader_parsed = _cgi.parse_header(titleheader)
             if len(titleheader_parsed) > 1 and titleheader_parsed[0] == "attachment":
                 temp_title = titleheader_parsed[1].get("filename")
                 if temp_title is not None:
                     self.title_fetched = temp_title
-        else:
-            self.title_fetched = _os.path.split(
-                self.url)[-1].split("?")[0].split("#")[0].split("&")[0]
 
         if self.path is None:
             self.path = self.title_fetched
