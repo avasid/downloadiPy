@@ -49,8 +49,8 @@ class Downloader():
             i += 1
         return str(nbytes) + suffix.get(i)
 
-    def path_handler(self, path: str, default: str, url: str, rename: bool = 0) -> tuple:
-        """Handles validation of the complete path.
+    def path_handler(self, path: str, default: str, rename: bool = 0) -> tuple:
+        """Handle validation of the complete path.
         """
         if _os.path.isdir(path):
             destination = path
@@ -83,7 +83,7 @@ class Downloader():
             if temp_fname != "":
                 fname = temp_fname
             path_tuple = self.path_handler(
-                _os.path.join(destination, fname), default, url, 0)
+                _os.path.join(destination, fname), default, 0)
             return path_tuple
         elif _os.path.exists(_os.path.join(destination, fname)):
             choice = str(
@@ -95,15 +95,15 @@ class Downloader():
                 rename = 1
                 print("Renaming...")
                 path_tuple = self.path_handler(
-                    _os.path.join(destination, fname), default, url, rename)
+                    _os.path.join(destination, fname), default, rename)
                 return path_tuple
             else:
                 print("SKIPPING either due to user choice or invalid choice")
                 return
         return path_tuple
 
-    def request(self, bytesize: int, url: str, attempt: int = 0) -> bool:
-        """Returns false incase the request fails to connect
+    def request(self, bytesize: int, attempt: int = 0) -> bool:
+        """Return false incase the request fails to connect
         """
         method = self.request_method
         headers = {"Range": "bytes=%d-" %
@@ -113,7 +113,7 @@ class Downloader():
         self.check_internet()
         try:
             self.content_request = self.session.request(
-                method, url, headers=headers, stream=True, timeout=10)
+                method, self.url, headers=headers, stream=True, timeout=10)
         except (_requests.exceptions.ConnectTimeout, _requests.exceptions.ReadTimeout, _requests.exceptions.ConnectionError) as e:
             print("Error encountered:", e)
             self.check_internet()
@@ -148,7 +148,7 @@ class Downloader():
             self.is_resume = False
             if bytesize != 0:
                 print("This url doesn't have Resume support, restarting download...")
-                content_request_status = self.request(0, url)
+                content_request_status = self.request(0, self.url)
 
         else:
             print("\nError code:", self.content_request.status_code)
@@ -163,7 +163,7 @@ class Downloader():
                 _sys.stdout.write("\rRetrying...    ")
                 _sys.stdout.flush()
                 content_request_status = self.request(
-                    bytesize, url, method, attempt + 1)
+                    bytesize, self.url, method, attempt + 1)
             else:
                 print("SKIPPING...")  # Bailing out!
                 return False
@@ -191,7 +191,7 @@ class Downloader():
         return "[{}]".format(time_remaining)
 
     def file_handler(self, path: str, content_request, content_size: int, resume: bool = False) -> None:
-        """Responsible for reading bytes from internet and saving locally.
+        """Read bytes from internet and save locally.
         """
         open_param, dl = ("rb+", _os.path.getsize(
             path + ".mddownload")) if resume else ("wb+", 0)
@@ -246,7 +246,7 @@ class Downloader():
             path + ".mddownload", dl, content_request.headers.get("Content-Encoding"))
 
     def decompress(self, path_of_file, encodings) -> None:
-        """Handles different kinds of decompressions incase the data received is in compressed form.
+        """Handle different kinds of decompressions incase the data received is in compressed form.
         """
         encoding_dict = {"gzip": _gzip.decompress,
                          "deflate": _zlib.decompress,
@@ -261,7 +261,7 @@ class Downloader():
             fh.write(x)
 
     def convert_to_final_file(self, path_to_file: str, size: int, content_encoding) -> None:
-        """Responsible for final check of download completion and rename to final file.
+        """Check download completion and rename to final file.
         """
         fsize = _os.path.getsize(path_to_file)
         if fsize == size:
@@ -283,7 +283,7 @@ class Downloader():
 
     @staticmethod
     def check_internet() -> None:
-        """Either connect the internet or the scipt calls exit. returns nothing
+        """Return nothing
         """
         no_intenet = True
         while (no_intenet):
@@ -299,7 +299,7 @@ class Downloader():
                     _sys.exit("No internet")
 
     def download(self) -> None:
-        """Main and only intended working method. Initializes the whole process.
+        """Initialize the whole process
         """
 
         print("Connecting...")
@@ -322,7 +322,7 @@ class Downloader():
 
         if self.path is None:
             self.path = self.title_fetched
-        path_tuple = self.path_handler(self.path, self.title_fetched, self.url)
+        path_tuple = self.path_handler(self.path, self.title_fetched)
 
         if path_tuple is None:
             return
