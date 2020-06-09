@@ -310,10 +310,10 @@ class Downloader():
             self.title_fetched = _os.path.split(
                 self.url)[-1].split("?")[0].split("#")[0].split("&")[0]
         else:
-            re_obj_fname = _re.search(r"filename=[\"'].*?[\"']", titleheader)
+            re_obj_fname = _re.search(r"filename=.+?[\"']", titleheader)
             if re_obj_fname is not None:
                 self.title_fetched = titleheader[
-                    re_obj_fname.start() + 10:re_obj_fname.end() - 1]
+                    re_obj_fname.start() + 9:re_obj_fname.end() - 1].strip("'\"")
             else:
                 self.title_fetched = _os.path.split(
                     self.url)[-1].split("?")[0].split("#")[0].split("&")[0]
