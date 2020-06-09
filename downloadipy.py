@@ -1,13 +1,14 @@
-import os as _os
-import sys as _sys
-
-import re as _re
-import requests as _requests
-import time as _time
-
-import brotli as _brotli
+import cgi as _cgi
 import gzip as _gzip
+import os as _os
+import re as _re
+import sys as _sys
+import time as _time
 import zlib as _zlib
+
+import requests as _requests
+import brotli as _brotli
+
 
 # _ used before module names to prevent importing of them from outside
 # this module.
@@ -125,12 +126,14 @@ class Downloader():
         content_request_status = True
 
         if self.content_request.status_code == 206:
-            range_info = self.content_request.headers.get("Content-Range").split(" ")[1]
+            range_info = self.content_request.headers.get(
+                "Content-Range").split(" ")[1]
 
             byte_range, size = range_info.split("/")
 
             if byte_range == "*":
-                print("Unsatisfyable range", self.content_request.headers.get("Content-Range"))
+                print("Unsatisfyable range",
+                      self.content_request.headers.get("Content-Range"))
                 self.download()
                 return False
             else:
@@ -196,13 +199,13 @@ class Downloader():
         content_size_humanized = None if content_size is None else self.humanize_bytes(
             content_size)
         with open(path + ".mddownload", open_param) as fh:
-            fh.seek(0,2)
+            fh.seek(0, 2)
             fh_pos = fh.tell()
             i = 0
             speed = 0
 
-            if fh_pos>=self.byte_start:
-                fh.seek(self.byte_start,0)
+            if fh_pos >= self.byte_start:
+                fh.seek(self.byte_start, 0)
             else:
                 content_request_status = self.request(fh_pos, self.url)
                 if content_request_status is False:
@@ -306,17 +309,16 @@ class Downloader():
         if content_request_status is False:
             return
         titleheader = self.content_request.headers.get("Content-Disposition")
-        if titleheader is None:
+
+        if titleheader is not None:
+            titleheader_parsed = _cgi.parse_header(titleheader)
+            if len(titleheader_parsed) > 1 and titleheader_parsed[0] == "attachment":
+                temp_title = titleheader_parsed[1].get("filename")
+                if temp_title is not None:
+                    self.title_fetched = temp_title
+        else:
             self.title_fetched = _os.path.split(
                 self.url)[-1].split("?")[0].split("#")[0].split("&")[0]
-        else:
-            re_obj_fname = _re.search(r"filename=.+?[\"']", titleheader)
-            if re_obj_fname is not None:
-                self.title_fetched = titleheader[
-                    re_obj_fname.start() + 9:re_obj_fname.end() - 1].strip("'\"")
-            else:
-                self.title_fetched = _os.path.split(
-                    self.url)[-1].split("?")[0].split("#")[0].split("&")[0]
 
         if self.path is None:
             self.path = self.title_fetched
@@ -341,7 +343,7 @@ class Downloader():
                     self.local_filesize, self.url)
                 if content_request_status is False:
                     return
-                
+
                 self.file_handler(self.path, self.content_request,
                                   self.filesize, resume=self.is_resume)
             elif self.filesize == self.local_filesize:
