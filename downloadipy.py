@@ -29,6 +29,7 @@ class Downloader():
         self.local_filesize = None
         self.destination = None
         self.fname = None
+        self.byte_start = 0
 
         if self.session_cookies is not None:
             self.session.cookies.update(self.session_cookies)
@@ -100,7 +101,7 @@ class Downloader():
                 return
         return path_tuple
 
-    def request(self, bytesize: int, url: str, method: str = "GET", attempt: int = 0) -> bool:
+    def request(self, bytesize: int, url: str, attempt: int = 0) -> bool:
         """Returns false incase the request fails to connect
         """
         method = self.request_method
@@ -122,10 +123,30 @@ class Downloader():
             return False
 
         content_request_status = True
-        if self.content_request.status_code == 206 or self.content_request.status_code == 200:
-            if ((self.content_request.status_code == 200) and (self.content_request.headers.get("Accept-Ranges") != "bytes")) and bytesize != 0:
+
+        if self.content_request.status_code == 206:
+            range_info = self.content_request.headers.get("Content-Range").split(" ")[1]
+
+            byte_range, size = range_info.split("/")
+
+            if byte_range == "*":
+                print("Unsatisfyable range", self.content_request.headers.get("Content-Range"))
+                self.download()
+                return False
+            else:
+                self.byte_start = int(byte_range.split("-")[0])
+
+            if size == "*":
+                self.filesize = None
+            else:
+                self.filesize = int(size)
+
+        elif self.content_request.status_code == 200:
+            self.is_resume = False
+            if bytesize != 0:
                 print("This url doesn't have Resume support, restarting download...")
                 content_request_status = self.request(0, url)
+
         else:
             print("\nError code:", self.content_request.status_code)
             if attempt < 5:
@@ -169,17 +190,27 @@ class Downloader():
     def file_handler(self, path: str, content_request, content_size: int, resume: bool = False) -> None:
         """Responsible for reading bytes from internet and saving locally.
         """
-        open_param, dl = ("ab", _os.path.getsize(
+        open_param, dl = ("rb+", _os.path.getsize(
             path + ".mddownload")) if resume else ("wb+", 0)
         chunk_size = 1048576  # 1024*1024 = 1048576(1MB)
         content_size_humanized = None if content_size is None else self.humanize_bytes(
             content_size)
         with open(path + ".mddownload", open_param) as fh:
-            time_start = _time.time()
+            fh.seek(0,2)
+            fh_pos = fh.tell()
             i = 0
             speed = 0
-            time_diff = 0
-            temp_len_dl = 0
+
+            if fh_pos>=self.byte_start:
+                fh.seek(self.byte_start,0)
+            else:
+                content_request_status = self.request(fh_pos, self.url)
+                if content_request_status is False:
+                    return None
+                else:
+                    content_request = self.content_request
+
+            time_start = _time.time()
             try:
                 for data in content_request.raw.stream(chunk_size, decode_content=False):
                     len_dl = len(data)
@@ -305,11 +336,12 @@ class Downloader():
             self.local_filesize = _os.path.getsize(self.path + ".mddownload")
 
             if self.filesize is None or self.filesize > self.local_filesize:
+                self.is_resume = True
                 content_request_status = self.request(
                     self.local_filesize, self.url)
                 if content_request_status is False:
                     return
-                self.is_resume = True
+                
                 self.file_handler(self.path, self.content_request,
                                   self.filesize, resume=self.is_resume)
             elif self.filesize == self.local_filesize:
