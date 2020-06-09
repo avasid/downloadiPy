@@ -6,7 +6,7 @@ def main():
 
     setuptools.setup(
         name="downloadipy",
-        version="0.1.2",
+        version="0.1.3",
         description="Internet downloader",
         long_description="Internet downloader with resume support",
         url="https://github.com/avasid/downloadiPy",
