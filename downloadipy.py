@@ -1,29 +1,26 @@
-import cgi as _cgi
-import gzip as _gzip
-import os as _os
-import sys as _sys
-import time as _time
-import zlib as _zlib
+import cgi
+import gzip
+import os
+import sys
+import time
+import zlib
 
-import brotli as _brotli
-import requests as _requests
-
-
-# _ used before module names to prevent importing of them from outside
-# this module.
+import brotli
+import requests
 
 
 class Downloader:
 
     def __init__(self, url: str, path: str = None, method: str = "GET", cookies: dict = None,
-                 headers: dict = None) -> None:
+                 headers: dict = None, skip_existing: bool = False) -> None:
         self.url = url
         self.path = path
         self.request_method = method
         self.session_cookies = cookies
         self.is_resume = False
-        self.session = _requests.Session()
+        self.session = requests.Session()
         self.headers = headers
+        self.skip = skip_existing
         self.content_request = None
         self.title_fetched = None
         self.filesize = None
@@ -52,11 +49,11 @@ class Downloader:
     def path_handler(self, path: str, default: str, rename: bool = False):
         """Handle validation of the complete path.
         """
-        if _os.path.isdir(path):
+        if os.path.isdir(path):
             destination = path
             fname = ""
         else:
-            destination, fname = _os.path.split(path)
+            destination, fname = os.path.split(path)
 
         if fname == "":
             fname = default
@@ -64,14 +61,13 @@ class Downloader:
         if destination == "":
             destination = "."
 
-        while not _os.path.isdir(destination):
+        while not os.path.isdir(destination):
             temp_destination = str(
                 input("Destination non-existant:[Current: %s] " % destination))
             if temp_destination != "":
                 destination = temp_destination
 
-        path_tuple = (destination, fname)
-        if fname == "" or rename:
+        if fname == "":
             print("Enter valid file name\nFile name:", fname, "\nDestination:", destination,
                   "\nTitle extracted from web:",
                   default)
@@ -83,25 +79,17 @@ class Downloader:
                 destination = temp_destination
             if temp_fname != "":
                 fname = temp_fname
-            path_tuple = self.path_handler(
-                _os.path.join(destination, fname), default, False)
-            return path_tuple
-        elif _os.path.exists(_os.path.join(destination, fname)):
-            choice = str(
-                input("File already exists, [D]ownload | [R]ename | [S]kip(default) :"))
-            if choice == "D":
-                print("Downloading")
-                return destination, fname
-            elif choice == "R":
-                rename = True
-                print("Renaming...")
-                path_tuple = self.path_handler(
-                    _os.path.join(destination, fname), default, rename)
-                return path_tuple
-            else:
-                print("SKIPPING either due to user choice or invalid choice")
+            return self.path_handler(
+                os.path.join(destination, fname), default, False)
+        elif os.path.exists(os.path.join(destination, fname)):
+            print("File already exists")
+            if self.skip:
+                print("Skipping")
                 return
-        return path_tuple
+            else:
+                print("Overwriting")
+                return destination, fname
+        return destination, fname
 
     def request(self, bytesize: int, attempt: int = 0) -> bool:
         """Return false incase the request fails to connect
@@ -115,8 +103,8 @@ class Downloader:
         try:
             self.content_request = self.session.request(
                 method, self.url, headers=headers, stream=True, timeout=10)
-        except (_requests.exceptions.ConnectTimeout, _requests.exceptions.ReadTimeout,
-                _requests.exceptions.ConnectionError) as e:
+        except (requests.exceptions.ConnectTimeout, requests.exceptions.ReadTimeout,
+                requests.exceptions.ConnectionError) as e:
             print("Error encountered:", e)
             self.check_internet()
             print("Internet Connected. Retrying download")
@@ -158,12 +146,12 @@ class Downloader:
                 print("Attempt {} of 5".format(attempt + 1))
                 i = 0
                 while i < 5:
-                    _sys.stdout.write("\rRetrying in, {}".format(5 - i))
-                    _sys.stdout.flush()
+                    sys.stdout.write("\rRetrying in, {}".format(5 - i))
+                    sys.stdout.flush()
                     i += 1
-                    _time.sleep(1)
-                _sys.stdout.write("\rRetrying...    ")
-                _sys.stdout.flush()
+                    time.sleep(1)
+                sys.stdout.write("\rRetrying...    ")
+                sys.stdout.flush()
                 content_request_status = self.request(
                     bytesize, attempt + 1)
             else:
@@ -181,7 +169,7 @@ class Downloader:
             time_remaining = "00:00:00"
         elif speed != 0:
             try:
-                time_remaining = _time.strftime("%H:%M:%S", _time.gmtime(
+                time_remaining = time.strftime("%H:%M:%S", time.gmtime(
                     (total_size - downloaded_size) // speed))
             except OSError as e:
                 if e.errno == 84:
@@ -195,7 +183,7 @@ class Downloader:
     def file_handler(self, path: str, content_request, content_size, resume: bool = False) -> None:
         """Read bytes from internet and save locally.
         """
-        open_param, dl = ("rb+", _os.path.getsize(
+        open_param, dl = ("rb+", os.path.getsize(
             path + ".mddownload")) if resume else ("wb+", 0)
         chunk_size = 1048576  # 1024*1024 = 1048576(1MB)
         content_size_humanized = None if content_size is None else self.humanize_bytes(
@@ -214,23 +202,23 @@ class Downloader:
                 else:
                     content_request = self.content_request
 
-            time_start = _time.time()
+            time_start = time.time()
             try:
                 for data in content_request.raw.stream(chunk_size, decode_content=False):
                     len_dl = len(data)
                     dl += len_dl
                     downloaded_size_humanized = self.humanize_bytes(dl)
                     fh.write(data)
-                    time_end = _time.time()
+                    time_end = time.time()
 
                     speed = len_dl // (time_end - time_start)
                     if content_size is None:
-                        _sys.stdout.write("\rDownloading{:<4} {:>10} {:>10}ps".format(
+                        sys.stdout.write("\rDownloading{:<4} {:>10} {:>10}ps".format(
                             ("." * i), downloaded_size_humanized, self.humanize_bytes(speed)))
                         i = 0 if i > 3 else i + 1
                     else:
                         done = min(int(50 * dl / content_size), 50)
-                        _sys.stdout.write(
+                        sys.stdout.write(
                             "\r[{}{}{}] {:>10}/{:<10} {:>10}ps {}".format("=" * done, ">" * bool(50 - done),
                                                                           "." * (50 - done - 1),
                                                                           downloaded_size_humanized,
@@ -238,9 +226,9 @@ class Downloader:
                                                                           self.humanize_bytes(speed),
                                                                           self.calculate_remaining_time(content_size,
                                                                                                         dl, speed)))
-                    _sys.stdout.flush()
-                    time_start = _time.time()
-            except (_requests.urllib3.exceptions.ReadTimeoutError, _requests.urllib3.exceptions.ProtocolError)as e:
+                    sys.stdout.flush()
+                    time_start = time.time()
+            except (requests.urllib3.exceptions.ReadTimeoutError, requests.urllib3.exceptions.ProtocolError)as e:
                 print("Error encountered:", e)
                 self.check_internet()
                 print("Internet Connected. Retrying download")
@@ -256,10 +244,10 @@ class Downloader:
     def decompress(path_of_file, encodings) -> None:
         """Handle different kinds of decompressions incase the data received is in compressed form.
         """
-        encoding_dict = {"gzip": _gzip.decompress,
-                         "deflate": _zlib.decompress,
+        encoding_dict = {"gzip": gzip.decompress,
+                         "deflate": zlib.decompress,
                          "identity": lambda i: i,  # No transformation
-                         "br": _brotli.decompress}
+                         "br": brotli.decompress}
         encodings = encodings.split(",")
         with open(path_of_file, "rb") as fh:
             x = fh.read()
@@ -271,12 +259,12 @@ class Downloader:
     def convert_to_final_file(self, path_to_file: str, size: int, content_encoding) -> None:
         """Check download completion and rename to final file.
         """
-        fsize = _os.path.getsize(path_to_file)
+        fsize = os.path.getsize(path_to_file)
         if fsize == size:
             if content_encoding is not None:
                 self.decompress(path_to_file, content_encoding)
             try:
-                _os.rename(path_to_file, path_to_file[:-11])
+                os.rename(path_to_file, path_to_file[:-11])
             except OSError as e:
                 if e.errno == 5:
                     print(
@@ -297,14 +285,14 @@ class Downloader:
         while no_intenet:
 
             try:
-                _requests.head("http://google.com/generate_204", timeout=4)
+                requests.head("http://google.com/generate_204", timeout=4)
                 no_intenet = False
-            except _requests.exceptions.ConnectionError:
+            except requests.exceptions.ConnectionError:
                 print("No intenet connection")
                 no_intenet = True
                 retry = str(input("Retry? [Y|N]: "))
                 if retry == "N":
-                    _sys.exit("No internet")
+                    sys.exit("No internet")
 
     def download(self) -> None:
         """Initialize the whole process
@@ -317,12 +305,12 @@ class Downloader:
         if content_request_status is False:
             return
 
-        self.title_fetched = _os.path.split(
+        self.title_fetched = os.path.split(
             self.url)[-1].split("?")[0].split("#")[0].split("&")[0]
 
         titleheader = self.content_request.headers.get("Content-Disposition")
         if titleheader is not None:
-            titleheader_parsed = _cgi.parse_header(titleheader)
+            titleheader_parsed = cgi.parse_header(titleheader)
             if len(titleheader_parsed) > 1 and titleheader_parsed[0] == "attachment":
                 temp_title = titleheader_parsed[1].get("filename")
                 if temp_title is not None:
@@ -336,14 +324,14 @@ class Downloader:
             return
         else:
             self.destination, self.fname = path_tuple
-        self.path = _os.path.join(self.destination, self.fname)
+        self.path = os.path.join(self.destination, self.fname)
         print("Title:", self.fname)
         size_header = self.content_request.headers.get("Content-Length")
         self.filesize = None if size_header is None else int(size_header)
 
-        if _os.path.exists(self.path + ".mddownload"):
+        if os.path.exists(self.path + ".mddownload"):
             print("Found incomplete download, resuming...")
-            self.local_filesize = _os.path.getsize(self.path + ".mddownload")
+            self.local_filesize = os.path.getsize(self.path + ".mddownload")
 
             if self.filesize is None or self.filesize > self.local_filesize:
                 self.is_resume = True
