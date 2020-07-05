@@ -1,14 +1,3 @@
-import cgi
-import gzip
-import os
-import sys
-import time
-import zlib
-
-import brotli
-import requests
-
-
 class Downloader:
 
     def __init__(self, url: str, path: str = None, method: str = "GET", cookies: dict = None,
