@@ -363,5 +363,5 @@ class Downloader:
 if __name__ == "__main__":
     url = str(input("URL: "))
     location = str(input("Location: "))
-    down_obj = Downloader(url, location)
+    down_obj = Downloader(url, location, skip_existing = True)
     down_obj.download()
