@@ -46,7 +46,7 @@ class Downloader:
             i += 1
         return str(nbytes) + suffix.get(i)
 
-    def path_handler(self, path: str, default: str, rename: bool = False):
+    def path_handler(self, path: str, default: str):
         """Handle validation of the complete path.
         """
         if os.path.isdir(path):
@@ -63,7 +63,7 @@ class Downloader:
 
         while not os.path.isdir(destination):
             temp_destination = str(
-                input("Destination non-existant:[Current: %s] " % destination))
+                input("Destination non-existent:[Current: %s] " % destination))
             if temp_destination != "":
                 destination = temp_destination
 
@@ -80,7 +80,7 @@ class Downloader:
             if temp_fname != "":
                 fname = temp_fname
             return self.path_handler(
-                os.path.join(destination, fname), default, False)
+                os.path.join(destination, fname), default)
         elif os.path.exists(os.path.join(destination, fname)):
             print("File already exists")
             if self.skip:
@@ -92,7 +92,7 @@ class Downloader:
         return destination, fname
 
     def request(self, bytesize: int, attempt: int = 0) -> bool:
-        """Return false incase the request fails to connect
+        """Return false in case the request fails to connect
         """
         method = self.request_method
         headers = {"Range": "bytes=%d-" %
@@ -122,7 +122,7 @@ class Downloader:
             byte_range, size = range_info.split("/")
 
             if byte_range == "*":
-                print("Unsatisfyable range",
+                print("Unsatisfiable range",
                       self.content_request.headers.get("Content-Range"))
                 self.download()
                 return False
@@ -162,7 +162,7 @@ class Downloader:
     @staticmethod
     def calculate_remaining_time(total_size: int, downloaded_size: int, speed: float) -> str:
         """Calculates total time remaining for the download to complete.
-        To be used in file_handler for UI puposes.
+        To be used in file_handler for UI purposes.
         Can't handle approximately bigger than 15:00:00.
         """
         if total_size < downloaded_size:
@@ -242,7 +242,7 @@ class Downloader:
 
     @staticmethod
     def decompress(path_of_file, encodings) -> None:
-        """Handle different kinds of decompressions incase the data received is in compressed form.
+        """Handle different kinds of decompression in case the data received is in compressed form.
         """
         encoding_dict = {"gzip": gzip.decompress,
                          "deflate": zlib.decompress,
@@ -281,15 +281,15 @@ class Downloader:
     def check_internet() -> None:
         """Return nothing
         """
-        no_intenet = True
-        while no_intenet:
+        no_internet = True
+        while no_internet:
 
             try:
-                requests.head("http://google.com/generate_204", timeout=4)
-                no_intenet = False
-            except requests.exceptions.ConnectionError:
-                print("No intenet connection")
-                no_intenet = True
+                requests.head("http://google.com/generate_204", timeout=8)
+                no_internet = False
+            except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
+                print("No internet connection")
+                no_internet = True
                 retry = str(input("Retry? [Y|N]: "))
                 if retry == "N":
                     sys.exit("No internet")
@@ -363,5 +363,5 @@ class Downloader:
 if __name__ == "__main__":
     url = str(input("URL: "))
     location = str(input("Location: "))
-    down_obj = Downloader(url, location, skip_existing = True)
+    down_obj = Downloader(url, location, skip_existing=True)
     down_obj.download()
