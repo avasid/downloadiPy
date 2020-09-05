@@ -237,8 +237,17 @@ class Downloader:
                 # current process with no response i.e. return none.
                 return None
 
-        self.convert_to_final_file(
-            path + ".mddownload", dl, content_request.headers.get("Content-Encoding"))
+        if content_size == dl or content_size is None:
+            self.convert_to_final_file(
+                path + ".mddownload", dl, content_request.headers.get("Content-Encoding"))
+        else:
+            print("Unexpected connection termination. Attempting resume...")
+            self.check_internet()
+            print("Internet Connected. Retrying download")
+            self.download()
+            # Because download() starts the whole process again; handling
+            # current process with no response i.e. return none.
+            return None
 
     @staticmethod
     def decompress(path_of_file, encodings) -> None:
