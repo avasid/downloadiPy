@@ -12,7 +12,7 @@ import requests
 class Downloader:
 
     def __init__(self, url: str, path: str = None, method: str = "GET", cookies: dict = None,
-                 headers: dict = None, skip_existing: bool = False) -> None:
+                 headers: dict = None, skip_existing: bool = False, timeout: int = 10) -> None:
         self.url = url
         self.path = path
         self.request_method = method
@@ -28,6 +28,7 @@ class Downloader:
         self.destination = None
         self.fname = None
         self.byte_start = 0
+        self.timeout = timeout
 
         if self.session_cookies is not None:
             self.session.cookies.update(self.session_cookies)
@@ -102,12 +103,13 @@ class Downloader:
         self.check_internet()
         try:
             self.content_request = self.session.request(
-                method, self.url, headers=headers, stream=True, timeout=10)
+                method, self.url, headers=headers, stream=True, timeout=self.timeout)
         except (requests.exceptions.ConnectTimeout, requests.exceptions.ReadTimeout,
                 requests.exceptions.ConnectionError) as e:
             print("Error encountered:", e)
             self.check_internet()
             print("Internet Connected. Retrying download")
+            self.timeout = min(self.timeout + 5, 60)
             self.download()
             # Because download() starts the whole process again; handling
             # current process with no response i.e. return false.
@@ -232,6 +234,7 @@ class Downloader:
                 print("Error encountered:", e)
                 self.check_internet()
                 print("Internet Connected. Retrying download")
+                self.timeout = min(self.timeout + 5, 60)
                 self.download()
                 # Because download() starts the whole process again; handling
                 # current process with no response i.e. return none.
@@ -291,10 +294,11 @@ class Downloader:
         """Return nothing
         """
         no_internet = True
+        timeout = 10
         while no_internet:
 
             try:
-                requests.head("http://google.com/generate_204", timeout=8)
+                requests.head("http://google.com/generate_204", timeout=timeout)
                 no_internet = False
             except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
                 print("No internet connection")
@@ -302,6 +306,7 @@ class Downloader:
                 retry = str(input("Retry? [Y|N]: "))
                 if retry == "N":
                     sys.exit("No internet")
+                timeout = min(timeout + 5, 60)
 
     def download(self) -> None:
         """Initialize the whole process
