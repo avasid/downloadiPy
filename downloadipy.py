@@ -212,6 +212,7 @@ class Downloader:
                     downloaded_size_humanized = self.humanize_bytes(dl)
                     fh.write(data)
                     time_end = time.time()
+                    time_end = time_end if time_end - time_start > 0.1 else time_end + 0.1
 
                     speed = len_dl // (time_end - time_start)
                     if content_size is None:
