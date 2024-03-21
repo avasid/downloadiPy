@@ -1,19 +1,20 @@
-import cgi
 import gzip
 import os
 import sys
 import time
 import zlib
+from email.message import Message
 
 import brotli
 import requests
+from urllib3.exceptions import ReadTimeoutError, ProtocolError
 
 
 class Downloader:
 
-    def __init__(self, url: str, path: str = None, method: str = "GET", cookies: dict = None,
+    def __init__(self, request_url: str, path: str = None, method: str = "GET", cookies: dict = None,
                  headers: dict = None, skip_existing: bool = False, timeout: int = 10) -> None:
-        self.url = url
+        self.url = request_url
         self.path = path
         self.request_method = method
         self.session_cookies = cookies
@@ -35,7 +36,7 @@ class Downloader:
 
     @staticmethod
     def humanize_bytes(nbytes: float) -> str:
-        """Convert amount of bytes to human readable form.
+        """Convert amount of bytes to human-readable form.
         """
         suffix = {0: " B",
                   1: " KB",
@@ -97,7 +98,9 @@ class Downloader:
         """
         method = self.request_method
         headers = {"Range": "bytes=%d-" %
-                            bytesize, "Accept-Encoding": "gzip, deflate, identity, br"}
+                            bytesize, "Accept-Encoding": "gzip, deflate, identity, br",
+                   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+                                 "Chrome/105.0.0.0 Safari/537.36"}
         if self.headers is not None:
             headers.update(self.headers)
         self.check_internet()
@@ -225,13 +228,14 @@ class Downloader:
                             "\r[{}{}{}] {:>10}/{:<10} {:>10}ps {}".format("=" * done, ">" * bool(50 - done),
                                                                           "." * (50 - done - 1),
                                                                           downloaded_size_humanized,
-                                                                          content_size_humanized if dl < content_size else downloaded_size_humanized,
+                                                                          content_size_humanized if dl < content_size
+                                                                          else downloaded_size_humanized,
                                                                           self.humanize_bytes(speed),
                                                                           self.calculate_remaining_time(content_size,
                                                                                                         dl, speed)))
                     sys.stdout.flush()
                     time_start = time.time()
-            except (requests.urllib3.exceptions.ReadTimeoutError, requests.urllib3.exceptions.ProtocolError)as e:
+            except (ReadTimeoutError, ProtocolError) as e:
                 print("Error encountered:", e)
                 self.check_internet()
                 print("Internet Connected. Retrying download")
@@ -325,9 +329,10 @@ class Downloader:
 
         titleheader = self.content_request.headers.get("Content-Disposition")
         if titleheader is not None:
-            titleheader_parsed = cgi.parse_header(titleheader)
-            if len(titleheader_parsed) > 1 and titleheader_parsed[0] == "attachment":
-                temp_title = titleheader_parsed[1].get("filename")
+            titleheader_parsed = Message()
+            titleheader_parsed['Content-Disposition'] = titleheader
+            if titleheader_parsed.get_content_disposition() == "attachment":
+                temp_title = titleheader_parsed.get_filename()
                 if temp_title is not None:
                     self.title_fetched = temp_title
 
